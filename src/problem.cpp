@@ -16,9 +16,9 @@ KeyObject::KeyObject(string key) {
   }
 }
 
-vector<string> KeyObject::getParameters() {
-  return parameters;
-}
+string KeyObject::getBasename() { return basename; }
+
+vector<string> KeyObject::getParameters() { return parameters; }
 
 string KeyObject::toString() {
   string s = basename;
@@ -55,8 +55,9 @@ void Codelet::makeResult() { result = true; }
 
 void Codelet::setName(string N) { name = N; }
 
-void Codelet::addParameter(string p, string val) { params.push_back(make_pair(p,val)); }
-void Codelet::addParameter(pair<string, string> p) { params.push_back(p); }
+void Codelet::addParameter(string p, string val) { params[p] = val; }
+
+void Codelet::addParameter(pair<string, string> p) { params[p.first] = p.second; }
 
 void Codelet::addDepend(string key) { deps.push_back(KeyObject(key)); }
 
@@ -65,6 +66,53 @@ void Codelet::addOutput(string key) { output.push_back(KeyObject(key)); }
 void Codelet::addCode(string definition) { code = definition; }
 
 bool Codelet::matchesDep(string dependency, vector<string> &reqdeps, vector<string> &outputs) {
+  int codeletMatch = -1;
+  KeyObject depKey(dependency);
+  for(int i=0; i<output.size(); i++) {
+    if((depKey.getBasename() == output[i].getBasename()) && 
+       (depKey.getParameters().size() == output[i].getParameters().size())) {
+      bool match=true;
+      //Basenames match and parameter lists are same length, this codelet is a potential fit
+      for(int j=0; j<output[i].getParameters().size(); j++) {
+        vector<string> ranges;
+        //Check if output tag is in the codelet parameter list, if so, grab the parameter range
+        if(params.find(output[i].getParameters()[j]) != params.end()) 
+          boost::split(ranges, params[output[i].getParameters()[j]], boost::is_any_of(","));
+        else 
+          ranges.push_back(output[i].getParameters()[j]);
+        //Determine if dependency parameter matches codelet parameter range
+        for(int k=0; k<ranges.size(); k++) {
+          vector<string> foo;
+          boost::split(foo, ranges[k], boost::is_any_of(":"));
+          if(foo.size() == 1) {
+            if(depKey.getParameters()[j] != foo[0]) match = false;
+          } else {
+            if((atoi(depKey.getParameters()[j].c_str()) < atoi(foo[0].c_str())) || 
+               (atoi(depKey.getParameters()[j].c_str()) > atoi(foo[1].c_str())))match = false; 
+          }
+          //This codelet does not match, we can move on to the next output
+          if(!match) break;
+        }
+      }
+      if(match) {
+        codeletMatch = i;
+        break;
+      }
+    }
+  }
+  if(codeletMatch > -1) {
+    reqdeps.clear();
+    outputs.clear();
+    vector<pair<string,string> > kvset;
+    for(int i=0; i<output[codeletMatch].getParameters().size(); i++)
+      kvset.push_back(make_pair(output[codeletMatch].getParameters()[i], depKey.getParameters()[i]));
+    for(int i=0; i<deps.size(); i++)
+      reqdeps.push_back(deps[i].toString(kvset));
+    for(int i=0; i<output.size(); i++)
+      outputs.push_back(output[i].toString(kvset));
+    return true;
+  }
+  return false;
 }
 
 bool Codelet::isResult() { return result; }
@@ -77,7 +125,10 @@ vector<KeyObject> Codelet::getOutput() { return output; }
 
 vector<KeyObject> Codelet::getDependencies() { return deps; }
 
-vector<pair<string,string> > Codelet::getParameters() { return params; }
+vector<pair<string,string> > Codelet::getParameters() { 
+  vector<pair<string,string> > v(params.begin(), params.end());
+  return v;
+}
 
 Problem::Problem(string n) {
   name = n;

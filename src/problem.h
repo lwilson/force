@@ -13,6 +13,7 @@ class KeyObject {
 
   public:
     KeyObject(string key);
+    string getBasename();
     vector<string> getParameters();
     string toString();
     string toString(vector<pair<string,string> > pairs);
@@ -21,7 +22,7 @@ class KeyObject {
 class Codelet {
   bool result;
   string name;
-  vector<pair<string, string> > params;
+  map<string, string> params;
   vector<KeyObject> deps;
   vector<KeyObject> output;
   string code;
