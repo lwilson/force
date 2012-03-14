@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <sstream>
 #include "problem.h"
 
 using namespace std;
@@ -36,5 +37,7 @@ int main() {
       cout << outs[i] << " ";
     cout << endl;
   }
+
+
   return 0;
 }

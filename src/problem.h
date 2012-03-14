@@ -7,6 +7,40 @@
 
 using namespace std;
 
+typedef struct {
+  vector<string> inputs;
+  string expression;
+} codeStruct;
+
+template <class T>
+vector<T> getCartProd(int index, vector<vector<T> > myVecs) {
+  vector<T> result;
+  int i;
+
+  result.resize(myVecs.size());
+
+  for(i=result.size()-1; i>0; i--) {
+    result[i] = myVecs[i][index % myVecs[i].size()];
+    index /= myVecs[i].size();
+  }
+
+  if(index >= myVecs[0].size()) {
+    result.clear();
+  } else {
+    result[0] = myVecs[0][index % myVecs[0].size()];
+  }
+
+  return result;
+}
+
+template <class T>
+unsigned long sizeofCartProd(vector<vector<T> > myVecs) {
+  unsigned long size = 1;
+  if(!myVecs.size()) return 0;
+  for(int i=0; i<myVecs.size(); i++) size *= myVecs[i].size();
+  return size;
+}
+
 class KeyObject {
   string basename;
   vector<string> parameters;
@@ -15,8 +49,10 @@ class KeyObject {
     KeyObject(string key);
     string getBasename();
     vector<string> getParameters();
+    string toBlankString();
     string toString();
     string toString(vector<pair<string,string> > pairs);
+    string toString(vector<pair<string,int> > pairs);
 };
 
 class Codelet {
@@ -25,7 +61,7 @@ class Codelet {
   map<string, string> params;
   vector<KeyObject> deps;
   vector<KeyObject> output;
-  string code;
+  codeStruct code;
 
   private:
     vector<string> getReqDeps(vector<pair<string, string> > dependency); 
@@ -43,7 +79,7 @@ class Codelet {
 
     bool isResult();
     string getName();
-    string getCode();
+    codeStruct getCode();
     vector<KeyObject> getOutput();
     vector<KeyObject> getDependencies();
     vector<pair<string, string> > getParameters();
@@ -65,6 +101,9 @@ class Problem {
     int numCodelets();
     int numData();
     int numEntries();
+
+    vector<Codelet> getCodelets(string s);
+    Codelet getResult();
 };
 
 #endif

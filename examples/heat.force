@@ -3,7 +3,7 @@ problem heatXfer
     parameter x=0:50
     parameter y=0:50
     parameter z=0:50
-    parameter t=0:10
+    parameter t=10
 
     output A[x][y][z][t]
 
