@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "ae.h"
 
 using namespace std;
 
@@ -41,7 +42,7 @@ unsigned long sizeofCartProd(vector<vector<T> > myVecs) {
   return size;
 }
 
-string makeVariable(string varStr, vector<pair<string, string> > pairs);
+string makeVariable(lua_State *L, string varStr, vector<pair<string, string> > pairs);
 string getBlankVariable(string varStr);
 
 class Codelet {
@@ -64,7 +65,7 @@ class Codelet {
     void addDepend(string key);
     void addOutput(string key);
     void addCode(string definition);
-    bool matchesDep(string dependency, vector<string> &reqdeps, vector<string> &outputs);
+    bool matchesDep(lua_State *L, string dependency, vector<string> &reqdeps, vector<string> &outputs);
 
     bool isResult();
     string getName();

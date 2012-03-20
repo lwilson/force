@@ -4,7 +4,8 @@
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <stdlib.h>
-#include <matheval.h>
+#include "ae.h"
+#include <omp.h>
 
 using namespace std;
 
@@ -120,7 +121,6 @@ int main(int argc, char** argv) {
   map<string,string> rcht;
   vector<vector<int> > resultVals;
   vector<string> resultKeys;
-  codeStruct code;  
 
   //Create a vector of result keys
   vector<pair<string,string> > parameters = problem.getResult().getParameters();
@@ -131,9 +131,14 @@ int main(int argc, char** argv) {
 
   string output = problem.getResult().getOutput()[0];
 
-  srand48((unsigned long)time(0)); 
+#pragma omp parallel
+{
+  codeStruct code;  
+  srand48((unsigned long)time(NULL) & omp_get_thread_num()); 
   unsigned long origIndex = lrand48() % sizeofCartProd(resultVals);
   unsigned long index = origIndex;
+ 
+  lua_State *L = ae_open();
 
   do {
     vector<int> cp = getCartProd(index, resultVals);
@@ -152,7 +157,7 @@ int main(int argc, char** argv) {
     }
 
     //Generate key to search for
-    string key = makeVariable(output, zipKey);
+    string key = makeVariable(L, output, zipKey);
 
     //Continuously attempt to solve until result point complete
     while(rcht.find(key) == rcht.end()) {
@@ -167,7 +172,7 @@ int main(int argc, char** argv) {
         for(int i =0; i<candidates.size() && !codeletMatch; i++) {
           attemptDeps.clear();
           attemptOuts.clear();
-          if(candidates[i].matchesDep(attempt, attemptDeps, attemptOuts)) {
+          if(candidates[i].matchesDep(L, attempt, attemptDeps, attemptOuts)) {
             codeletMatch = true;
             code = candidates[i].getCode();
             values.clear();
@@ -195,24 +200,20 @@ int main(int argc, char** argv) {
         //If there was a codelet match and were no missing dependencies, then it's time to solve 
         else {
           //Evaluate the code
-          char **names = (char**)malloc(sizeof(char*)*code.inputs.size());
-          for(int a=0; a<code.inputs.size(); a++) {
-            names[a] = (char*)code.inputs[a].c_str();
+          string expr = code.expression;
+          for(int n=0; n<code.inputs.size(); n++) {
+            ostringstream vs;
+            vs << values[n];
+            boost::replace_all(expr, code.inputs[n], vs.str());
           }
-          void* eval = evaluator_create((char*)code.expression.c_str());
-          double Cvals[values.size()];
-          for(int v=0; v<values.size(); v++) Cvals[v] = values[v];
-          double val = evaluator_evaluate(eval, code.inputs.size(), names, Cvals);
+          double value = ae_eval(L, (char*)expr.c_str());
 
           //Store the returned value in the table
           ostringstream os;
-          os << val;
+          os << value;
           rcht[attempt] = os.str();         
-          cout << attempt << " " << val << " (" << rcht.size() << ")" << endl;
+          cout << omp_get_thread_num() << " " << attempt << " " << value << endl;
 
-          //Cleanup
-          evaluator_destroy(eval);
-          free(names);
           solvesIt = true;
         }
       }
@@ -220,4 +221,8 @@ int main(int argc, char** argv) {
     index++;
   } while(index != origIndex);
 
+  cout << "No more work, cleaning up" << endl;
+  ae_close(L);
+}
+  return 0;
 }

@@ -4,7 +4,7 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 #include "problem.h"
-#include <matheval.h>
+#include "ae.h"
 
 string getVariableBasename(string varStr) {
   vector<string> split_str;
@@ -35,8 +35,7 @@ string getBlankVariable(string varStr) {
   return s;
 }
 
-string makeVariable(string varStr, vector<pair<string, string> > pairs) {
-  void* eval;
+string makeVariable(lua_State *L, string varStr, vector<pair<string, string> > pairs) {
   double value;
   ostringstream s;
   vector<string> parameters = getVariableParameters(varStr);
@@ -48,10 +47,8 @@ string makeVariable(string varStr, vector<pair<string, string> > pairs) {
     for(int i=0; i<pairs.size(); i++)
       boost::replace_all(p, pairs[i].first, pairs[i].second);
     char* p2 = (char*)p.c_str();
-    eval = evaluator_create(p2);
-    value = evaluator_evaluate_x(eval,0);
+    value = ae_eval(L, p2);
     s << "[" << value << "]";
-    evaluator_destroy(eval);
   }
   return s.str();
 }
@@ -81,19 +78,19 @@ void Codelet::addCode(string definition) {
   //Split definition into two parts: parameters and expression
   boost::split(splitDef, definition, boost::is_any_of(":"));
 
-  //Split the parameter list into individual variable names
-  boost::split(tmpParams, splitDef[0], boost::is_any_of("(,)"));
-  for(int i=0; i<tmpParams.size(); i++) {
-    if(tmpParams[i].length()) code.inputs.push_back(tmpParams[i]);
-  }
+  if(splitDef.size() == 2) {
+    //Split the parameter list into individual variable names
+    boost::split(tmpParams, splitDef[0], boost::is_any_of("(,)"));
+    for(int i=0; i<tmpParams.size(); i++) {
+      if(tmpParams[i].length()) code.inputs.push_back(tmpParams[i]);
+    }
 
-  //Store the expression
-  if(splitDef.size() == 2) 
+    //Store the expression
     code.expression = splitDef[1];
-  else code.expression = splitDef[0];
+  } else code.expression = splitDef[0];
 }
 
-bool Codelet::matchesDep(string dependency, vector<string> &reqdeps, vector<string> &outputs) {
+bool Codelet::matchesDep(lua_State *L, string dependency, vector<string> &reqdeps, vector<string> &outputs) {
   int codeletMatch = -1;
   string depBase = getVariableBasename(dependency);
   vector<string> depParams = getVariableParameters(dependency);
@@ -144,9 +141,9 @@ bool Codelet::matchesDep(string dependency, vector<string> &reqdeps, vector<stri
     for(int i=0; i<outParams.size(); i++)
       kvset.push_back(make_pair(outParams[i], depParams[i]));
     for(int i=0; i<deps.size(); i++)
-      reqdeps.push_back(makeVariable(deps[i], kvset));
+      reqdeps.push_back(makeVariable(L, deps[i], kvset));
     for(int i=0; i<output.size(); i++)
-      outputs.push_back(makeVariable(output[i], kvset));
+      outputs.push_back(makeVariable(L, output[i], kvset));
     return true;
   }
   return false;
