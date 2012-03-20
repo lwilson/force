@@ -25,9 +25,9 @@ int main() {
   vector<string> rdeps;
   vector<string> outs;
 
-  bool match = p.matchesDep("A[1][0][10]", rdeps, outs);
+  bool match = p.matchesDep("A[1][1][10]", rdeps, outs);
 
-  cout << "A[1][0][10]" << endl << match << endl;
+  cout << "A[1][1][10]" << endl << match << endl;
   
   if(match) {
     for(int i=0; i<rdeps.size(); i++)

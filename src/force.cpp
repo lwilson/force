@@ -129,11 +129,13 @@ int main(int argc, char** argv) {
     resultVals.push_back(createRangeVector(parameters[i].second));
   }
 
-  KeyObject output = problem.getResult().getOutput()[0];
+  string output = problem.getResult().getOutput()[0];
 
   srand48((unsigned long)time(0)); 
   unsigned long origIndex = lrand48() % sizeofCartProd(resultVals);
-  for(unsigned long index = origIndex+1; index != origIndex; index++) {
+  unsigned long index = origIndex;
+
+  do {
     vector<int> cp = getCartProd(index, resultVals);
     //If a zero vector returned, index was out of range and must be set to 0
     if(cp.size() == 0) {
@@ -142,35 +144,37 @@ int main(int argc, char** argv) {
     }
 
     //Zip together the key/value pairs in the cartesian tuple
-    vector<pair<string, int> > zipKey;
-    for(int i=0; i<cp.size(); i++) zipKey.push_back(make_pair(resultKeys[i], cp[i]));
+    vector<pair<string, string> > zipKey;
+    for(int i=0; i<cp.size(); i++) {
+      ostringstream s;
+      s << cp[i];
+      zipKey.push_back(make_pair(resultKeys[i], s.str()));
+    }
 
     //Generate key to search for
-    string key = output.toString(zipKey);
+    string key = makeVariable(output, zipKey);
 
-    cout << "Attempt to solve result key: " << key << endl;
     //Continuously attempt to solve until result point complete
     while(rcht.find(key) == rcht.end()) {
-      KeyObject attempt(key);
-      string attemptstring = key;
+      string attempt = key;
       bool solvesIt = false;
       while(!solvesIt) {
         bool codeletMatch = false;
-        vector<Codelet> candidates = problem.getCodelets(attempt.toBlankString());
+        vector<Codelet> candidates = problem.getCodelets(getBlankVariable(attempt));
         vector<string> attemptDeps, attemptOuts;
         vector<string> missing;
         vector<double> values;
         for(int i =0; i<candidates.size() && !codeletMatch; i++) {
           attemptDeps.clear();
           attemptOuts.clear();
-          if(candidates[i].matchesDep(attemptstring, attemptDeps, attemptOuts)) {
+          if(candidates[i].matchesDep(attempt, attemptDeps, attemptOuts)) {
             codeletMatch = true;
             code = candidates[i].getCode();
             values.clear();
             missing.clear();
             //Check to see if all of the dependencies have been solved
             for(int j=0; j<attemptDeps.size(); j++) {
-              if(rcht.find(attemptDeps[i]) != rcht.end()) {
+              if(rcht.find(attemptDeps[j]) != rcht.end()) {
                 values.push_back(atof(rcht[attemptDeps[j]].c_str()));
               } else
                 missing.push_back(attemptDeps[j]);
@@ -179,15 +183,14 @@ int main(int argc, char** argv) {
         }
         //If no codelet matches, check the data files for a key that does
         if(!codeletMatch) {
-          cout << "CRAP! Couldn't find a match for " << attemptstring << endl;
+          cout << "CRAP! Couldn't find a match for " << attempt << endl;
           exit(1);
           //We need to go back to the result point now
           break;
         }
         //If dependencies were missing, attempt to solve one of those dependencies
         else if(missing.size()) {
-          attemptstring = missing[rand() % missing.size()];
-          KeyObject attempt(attemptstring);
+          attempt = missing[rand() % missing.size()];
         }
         //If there was a codelet match and were no missing dependencies, then it's time to solve 
         else {
@@ -204,8 +207,8 @@ int main(int argc, char** argv) {
           //Store the returned value in the table
           ostringstream os;
           os << val;
-          cout << attemptstring << " " << val << endl;
-          rcht[attemptstring] = os.str();         
+          rcht[attempt] = os.str();         
+          cout << attempt << " " << val << " (" << rcht.size() << ")" << endl;
 
           //Cleanup
           evaluator_destroy(eval);
@@ -214,6 +217,7 @@ int main(int argc, char** argv) {
         }
       }
     }
-  }
+    index++;
+  } while(index != origIndex);
 
 }

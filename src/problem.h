@@ -41,26 +41,15 @@ unsigned long sizeofCartProd(vector<vector<T> > myVecs) {
   return size;
 }
 
-class KeyObject {
-  string basename;
-  vector<string> parameters;
-
-  public:
-    KeyObject(string key);
-    string getBasename();
-    vector<string> getParameters();
-    string toBlankString();
-    string toString();
-    string toString(vector<pair<string,string> > pairs);
-    string toString(vector<pair<string,int> > pairs);
-};
+string makeVariable(string varStr, vector<pair<string, string> > pairs);
+string getBlankVariable(string varStr);
 
 class Codelet {
   bool result;
   string name;
   map<string, string> params;
-  vector<KeyObject> deps;
-  vector<KeyObject> output;
+  vector<string> deps;
+  vector<string> output;
   codeStruct code;
 
   private:
@@ -80,8 +69,8 @@ class Codelet {
     bool isResult();
     string getName();
     codeStruct getCode();
-    vector<KeyObject> getOutput();
-    vector<KeyObject> getDependencies();
+    vector<string> getOutput();
+    vector<string> getDependencies();
     vector<pair<string, string> > getParameters();
 };
 
