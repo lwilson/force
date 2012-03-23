@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "ae.h"
 #include <omp.h>
+#include <unordered_map>
 
 using namespace std;
 
@@ -118,7 +119,7 @@ int main(int argc, char** argv) {
 
   string descfile(argv[1]);
   Problem problem = parse(descfile);
-  map<string,string> rcht;
+  unordered_map<string,string> rcht;
   vector<vector<int> > resultVals;
   vector<string> resultKeys;
 
@@ -133,6 +134,7 @@ int main(int argc, char** argv) {
 
 #pragma omp parallel
 {
+  char vs[256];
   codeStruct code;  
   srand48((unsigned long)time(NULL) & omp_get_thread_num()); 
   unsigned long origIndex = lrand48() % sizeofCartProd(resultVals);
@@ -151,9 +153,9 @@ int main(int argc, char** argv) {
     //Zip together the key/value pairs in the cartesian tuple
     vector<pair<string, string> > zipKey;
     for(int i=0; i<cp.size(); i++) {
-      ostringstream s;
-      s << cp[i];
-      zipKey.push_back(make_pair(resultKeys[i], s.str()));
+      sprintf(vs, "%ld", cp[i]);
+      string s(vs);
+      zipKey.push_back(make_pair(resultKeys[i], s));
     }
 
     //Generate key to search for
@@ -168,7 +170,7 @@ int main(int argc, char** argv) {
         vector<Codelet> candidates = problem.getCodelets(getBlankVariable(attempt));
         vector<string> attemptDeps, attemptOuts;
         vector<string> missing;
-        vector<double> values;
+        map<string, double> values;
         for(int i =0; i<candidates.size() && !codeletMatch; i++) {
           attemptDeps.clear();
           attemptOuts.clear();
@@ -180,7 +182,7 @@ int main(int argc, char** argv) {
             //Check to see if all of the dependencies have been solved
             for(int j=0; j<attemptDeps.size(); j++) {
               if(rcht.find(attemptDeps[j]) != rcht.end()) {
-                values.push_back(atof(rcht[attemptDeps[j]].c_str()));
+                values[attemptDeps[j]] = atof(rcht[attemptDeps[j]].c_str());
               } else
                 missing.push_back(attemptDeps[j]);
             }
@@ -202,17 +204,18 @@ int main(int argc, char** argv) {
           //Evaluate the code
           string expr = code.expression;
           for(int n=0; n<code.inputs.size(); n++) {
-            ostringstream vs;
-            vs << values[n];
-            boost::replace_all(expr, code.inputs[n], vs.str());
+            sprintf(vs, "%lf", values[attemptDeps[n]]);
+            string os(vs);
+            boost::replace_all(expr, code.inputs[n], os);
           }
           double value = ae_eval(L, (char*)expr.c_str());
 
           //Store the returned value in the table
-          ostringstream os;
-          os << value;
-          rcht[attempt] = os.str();         
-          cout << omp_get_thread_num() << " " << attempt << " " << value << endl;
+          sprintf(vs,"%lf",value);
+          string os(vs);
+          #pragma omp critical
+          rcht[attempt] = os;         
+          //cout << omp_get_thread_num() << " " << attempt << " " << value << endl;
 
           solvesIt = true;
         }
@@ -221,7 +224,7 @@ int main(int argc, char** argv) {
     index++;
   } while(index != origIndex);
 
-  cout << "No more work, cleaning up" << endl;
+  //cout << "No more work, cleaning up" << endl;
   ae_close(L);
 }
   return 0;

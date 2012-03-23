@@ -37,10 +37,11 @@ string getBlankVariable(string varStr) {
 
 string makeVariable(lua_State *L, string varStr, vector<pair<string, string> > pairs) {
   double value;
-  ostringstream s;
+  char sTmp[256];
+  string s;
   vector<string> parameters = getVariableParameters(varStr);
 
-  s << getVariableBasename(varStr);
+  s = getVariableBasename(varStr);
 
   for(int k=0; k<parameters.size(); k++) {
     string p = parameters[k];
@@ -48,9 +49,10 @@ string makeVariable(lua_State *L, string varStr, vector<pair<string, string> > p
       boost::replace_all(p, pairs[i].first, pairs[i].second);
     char* p2 = (char*)p.c_str();
     value = ae_eval(L, p2);
-    s << "[" << value << "]";
+    sprintf(sTmp, "[%ld]", (int)value);
+    s.append(sTmp);
   }
-  return s.str();
+  return s;
 }
 
 vector<string> Codelet::getReqDeps(vector<pair<string, string> > dependency) {
