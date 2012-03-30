@@ -5,8 +5,8 @@
 #include <iostream>
 #include <stdlib.h>
 #include "ae.h"
+#include "bucketlock_hash.h"
 #include <omp.h>
-#include <unordered_map>
 
 using namespace std;
 
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
 
   string descfile(argv[1]);
   Problem problem = parse(descfile);
-  unordered_map<string,string> rcht;
+  bucketlock_hash<double> rcht(512);
   vector<vector<int> > resultVals;
   vector<string> resultKeys;
 
@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
     string key = makeVariable(L, output, zipKey);
 
     //Continuously attempt to solve until result point complete
-    while(rcht.find(key) == rcht.end()) {
+    while(!rcht.find(key)) {
       string attempt = key;
       bool solvesIt = false;
       while(!solvesIt) {
@@ -181,9 +181,7 @@ int main(int argc, char** argv) {
             missing.clear();
             //Check to see if all of the dependencies have been solved
             for(int j=0; j<attemptDeps.size(); j++) {
-              if(rcht.find(attemptDeps[j]) != rcht.end()) {
-                values[attemptDeps[j]] = atof(rcht[attemptDeps[j]].c_str());
-              } else
+              if(!rcht.get(attemptDeps[j], values[attemptDeps[j]])) 
                 missing.push_back(attemptDeps[j]);
             }
           }
@@ -211,11 +209,8 @@ int main(int argc, char** argv) {
           double value = ae_eval(L, (char*)expr.c_str());
 
           //Store the returned value in the table
-          sprintf(vs,"%lf",value);
-          string os(vs);
-          #pragma omp critical
-          rcht[attempt] = os;         
-          //cout << omp_get_thread_num() << " " << attempt << " " << value << endl;
+          rcht.put(attempt, value);
+          cout << attempt << " " << value << endl;
 
           solvesIt = true;
         }
@@ -224,7 +219,7 @@ int main(int argc, char** argv) {
     index++;
   } while(index != origIndex);
 
-  //cout << "No more work, cleaning up" << endl;
+  cout << "No more work, cleaning up" << endl;
   ae_close(L);
 }
   return 0;
