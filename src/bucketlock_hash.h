@@ -6,7 +6,7 @@
 #include <vector>
 #include <crypt.h>
 #include <stdlib.h>
-#include <openssl/sha.h>
+#include "sha1.h"
 #include <omp.h>
 
 using namespace std;
@@ -38,8 +38,8 @@ unsigned long bucketlock_hash<V>::hash(string key) {
   unsigned char hash[20];
   unsigned long hash_int = 0;
 
-  SHA1((unsigned char*)key.c_str(), key.size(), hash);
-  for(int i=0; i<20; i++) hash_int += (int)hash[i]*(256^19-i);
+  sha1::calc((unsigned char*)key.c_str(), key.size(), hash);
+  for(int i=0; i<5; i++) hash_int += (int)hash[i]*(256^4-i);
 
   return hash_int;
 }

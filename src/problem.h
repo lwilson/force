@@ -94,6 +94,7 @@ class Problem {
 
     vector<Codelet> getCodelets(string s);
     Codelet getResult();
+    vector<string> getData();
 };
 
 #endif

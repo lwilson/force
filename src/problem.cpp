@@ -200,3 +200,5 @@ vector<Codelet> Problem::getCodelets(string s) {
 }
 
 Codelet Problem::getResult() { return result; }
+
+vector<string> Problem::getData() { return data; }

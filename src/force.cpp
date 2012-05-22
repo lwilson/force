@@ -1,11 +1,12 @@
 #include "problem.h"
 #include <fstream>
 #include <sstream>
+#include <stack>
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <stdlib.h>
 #include "ae.h"
-#include "bucketlock_hash.h"
+#include <unordered_map>
 #include <omp.h>
 
 using namespace std;
@@ -119,7 +120,7 @@ int main(int argc, char** argv) {
 
   string descfile(argv[1]);
   Problem problem = parse(descfile);
-  bucketlock_hash<double> rcht(512);
+  unordered_map<string, double> rcht;
   vector<vector<int> > resultVals;
   vector<string> resultKeys;
 
@@ -134,9 +135,11 @@ int main(int argc, char** argv) {
 
 #pragma omp parallel
 {
+  stack<string> depStack;
+  string attempt;
   char vs[256];
-  codeStruct code;  
-  srand48((unsigned long)time(NULL) & omp_get_thread_num()); 
+  codeStruct code;
+  srand48((unsigned long)time(NULL) | omp_get_thread_num()); 
   unsigned long origIndex = lrand48() % sizeofCartProd(resultVals);
   unsigned long index = origIndex;
  
@@ -162,8 +165,13 @@ int main(int argc, char** argv) {
     string key = makeVariable(L, output, zipKey);
 
     //Continuously attempt to solve until result point complete
-    while(!rcht.find(key)) {
-      string attempt = key;
+    while(rcht.find(key) == rcht.end()) {
+      if(depStack.size() > 0) {
+        attempt = depStack.top();
+        depStack.pop();
+      } else {
+        attempt = key;
+      }
       bool solvesIt = false;
       while(!solvesIt) {
         bool codeletMatch = false;
@@ -181,20 +189,42 @@ int main(int argc, char** argv) {
             missing.clear();
             //Check to see if all of the dependencies have been solved
             for(int j=0; j<attemptDeps.size(); j++) {
-              if(!rcht.get(attemptDeps[j], values[attemptDeps[j]])) 
+              if(rcht.find(attemptDeps[j]) == rcht.end())
                 missing.push_back(attemptDeps[j]);
+              else
+                values[attemptDeps[j]] = rcht[attemptDeps[j]];
             }
           }
         }
         //If no codelet matches, check the data files for a key that does
         if(!codeletMatch) {
           cout << "CRAP! Couldn't find a match for " << attempt << endl;
+          vector<string> data = problem.getData();
+          for(int d=0; d<data.size(); d++) {
+            //Check the filename -- if URL, use CURL, otherwise fopen
+            if(strstr(data[d].c_str(), "http://")) {
+              //URL - go to web and retrieve the file
+            } else {
+	      //Local file, just grep out the key we need
+              string cmd = "cat " + data[d] + " | grep '" + attempt +"'";
+	      FILE *fp = popen(cmd.c_str(), "r");
+              double value;
+              if(fscanf(fp, "%*s %f", &value)) {
+                #pragma omp critical
+                rcht[attempt] = value;
+                pclose(fp);
+                break;
+              }
+              pclose(fp);
+            }
+          }
           exit(1);
           //We need to go back to the result point now
           break;
         }
         //If dependencies were missing, attempt to solve one of those dependencies
         else if(missing.size()) {
+          depStack.push(attempt);
           attempt = missing[rand() % missing.size()];
         }
         //If there was a codelet match and were no missing dependencies, then it's time to solve 
@@ -209,7 +239,8 @@ int main(int argc, char** argv) {
           double value = ae_eval(L, (char*)expr.c_str());
 
           //Store the returned value in the table
-          rcht.put(attempt, value);
+          #pragma omp critical
+          rcht[attempt] = value;
           cout << attempt << " " << value << endl;
 
           solvesIt = true;
