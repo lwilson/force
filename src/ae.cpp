@@ -18,12 +18,11 @@ lua_State* ae_open(void)
  L=lua_open();
  lua_pushvalue(L,LUA_GLOBALSINDEX);	/* open math in global scope */
  lua_setglobal(L,LUA_MATHLIBNAME);
- luaopen_math(L);
- luaopen_mathx(L);
  lua_pushnil(L);
  lua_setglobal(L,LUA_MATHLIBNAME);
  lua_settop(L,0);
  lua_pushnil(L);			/* slot for error message */
+ luaL_openlibs(L);
  return L;
 }
 

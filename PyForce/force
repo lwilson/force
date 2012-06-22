@@ -2,7 +2,7 @@
 
 from rcdata import RCDHT
 from rcdata import RCLHT
-from rcdata import RCVoldemort
+#from rcdata import RCVoldemort
 from rcparser import RCParser
 from rcsolver import RCSolver
 from rcproblem import RCProblem

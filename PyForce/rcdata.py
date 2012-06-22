@@ -1,7 +1,7 @@
 from mpycache import LRUCache
 import socket
 import signal
-import voldemort
+#import voldemort
 
 class RCLHT:
   def __init__(self):

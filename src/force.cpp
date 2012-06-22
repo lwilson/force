@@ -7,7 +7,10 @@
 #include <stdlib.h>
 #include "ae.h"
 #include <unordered_map>
+#include <algorithm>
 #include <omp.h>
+
+bool strsort(string s1, string s2) { return (s1.length()>s2.length()); }
 
 using namespace std;
 
@@ -135,6 +138,7 @@ int main(int argc, char** argv) {
 
 #pragma omp parallel
 {
+  unordered_map<string,double>::const_iterator mapfind;
   stack<string> depStack;
   string attempt;
   char vs[256];
@@ -189,16 +193,18 @@ int main(int argc, char** argv) {
             missing.clear();
             //Check to see if all of the dependencies have been solved
             for(int j=0; j<attemptDeps.size(); j++) {
-              if(rcht.find(attemptDeps[j]) == rcht.end())
+              #pragma omp critical
+              mapfind = rcht.find(attemptDeps[j]);
+              if(mapfind == rcht.end())
                 missing.push_back(attemptDeps[j]);
-              else
-                values[attemptDeps[j]] = rcht[attemptDeps[j]];
+              else 
+                values[code.inputs[j]] = rcht[attemptDeps[j]];
             }
           }
         }
         //If no codelet matches, check the data files for a key that does
         if(!codeletMatch) {
-          cout << "CRAP! Couldn't find a match for " << attempt << endl;
+          //cout << "CRAP! Couldn't find a match for " << attempt << endl;
           vector<string> data = problem.getData();
           for(int d=0; d<data.size(); d++) {
             //Check the filename -- if URL, use CURL, otherwise fopen
@@ -209,7 +215,7 @@ int main(int argc, char** argv) {
               string cmd = "cat " + data[d] + " | grep '" + attempt +"'";
 	      FILE *fp = popen(cmd.c_str(), "r");
               double value;
-              if(fscanf(fp, "%*s %f", &value)) {
+              if(fscanf(fp, "%*s %lf", &value)) {
                 #pragma omp critical
                 rcht[attempt] = value;
                 pclose(fp);
@@ -218,7 +224,7 @@ int main(int argc, char** argv) {
               pclose(fp);
             }
           }
-          exit(1);
+          //exit(1);
           //We need to go back to the result point now
           break;
         }
@@ -231,13 +237,15 @@ int main(int argc, char** argv) {
         else {
           //Evaluate the code
           string expr = code.expression;
-          for(int n=0; n<code.inputs.size(); n++) {
-            sprintf(vs, "%lf", values[attemptDeps[n]]);
+          vector<string> tmpDeps(code.inputs);
+          sort(tmpDeps.begin(), tmpDeps.end(), strsort);
+          for(int n=0; n<tmpDeps.size(); n++) {
+            sprintf(vs, "%lf", values[tmpDeps[n]]);
             string os(vs);
-            boost::replace_all(expr, code.inputs[n], os);
+            boost::replace_all(expr, tmpDeps[n], os);
           }
           double value = ae_eval(L, (char*)expr.c_str());
-
+ 
           //Store the returned value in the table
           #pragma omp critical
           rcht[attempt] = value;

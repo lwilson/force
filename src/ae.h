@@ -18,7 +18,7 @@ lua_State *	ae_open		(void);
 void		ae_close	(lua_State*);
 double		ae_set		(const char* name, double value);
 double		ae_eval		(lua_State*, const char* expression);
-const char* 	ae_error	(void);
+const char* 	ae_error	(lua_State*);
 
 /*
   ae_open()
